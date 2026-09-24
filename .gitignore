@@ -1,23 +1,27 @@
-# Python Bytecode
+# Byte-compiled / optimized files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
+*.py[cod]
+*$py.class
 
-# Virtual Environments
+# Environment variables & secrets
+.env
+.env.local
+
+# Virtual environments
 venv/
 .venv/
 env/
+ENV/
 
-# Heavy Data & Cached Index Files
+# Data caches & local vector store index
 data/cache/
 data/chroma_db/
-*.pdf
-*.pkl
-tmp/
 
-# IDE / OS files
+# Large PDF files
+*.pdf
+Harrison's_Internal_Medicine_2022,_21th_Edition_Vol_1_&_Vol_2_.pdf
+
+# IDEs & System files
 .vscode/
 .idea/
 .DS_Store
