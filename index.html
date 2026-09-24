@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harrison's Clinical RAG | Evidence-Based Decision Support System</title>
+    <meta name="description" content="Production-grade local Retrieval-Augmented Generation dashboard for Harrison's Principles of Internal Medicine. Grounded clinical decision support for physicians.">
+    
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Marked.js Markdown & Table Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #090D16;
+            --panel-bg: rgba(17, 24, 39, 0.75);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --accent-gradient: linear-gradient(135deg, #0EA5E9 0%, #10B981 100%);
+            --accent-cyan: #0EA5E9;
+            --accent-emerald: #10B981;
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+            --card-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-heading: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Top Navbar */
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 2rem;
+            background: rgba(11, 15, 23, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--panel-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+        }
+
+        .brand-text h1 {
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-text p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--panel-border);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #EF4444;
+        }
+
+        .status-dot.online {
+            background-color: #10B981;
+            box-shadow: 0 0 10px #10B981;
+        }
+
+        /* Layout Grid */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.5rem;
+            max-width: 1600px;
+            margin: 1.5rem auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .glass-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-family: var(--font-heading);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-header i {
+            color: var(--accent-cyan);
+        }
+
+        /* Quick Cases List */
+        .preset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            color: var(--text-secondary);
+            font-size: 0.825rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .preset-btn:hover {
+            background: rgba(14, 165, 233, 0.1);
+            border-color: rgba(14, 165, 233, 0.3);
+            color: var(--text-primary);
+            transform: translateX(4px);
+        }
+
+        .preset-btn i {
+            font-size: 0.75rem;
+            opacity: 0.6;
+        }
+
+        /* Slider Controls */
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+
+        .control-value {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-cyan);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            height: 6px;
+        }
+
+        /* Main Workspace */
+        .main-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Query Input Area */
+        .query-card {
+            position: relative;
+        }
+
+        .query-textarea {
+            width: 100%;
+            min-height: 120px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            font-size: 0.95rem;
+            resize: vertical;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+
+        .query-textarea:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.25);
+            background: rgba(15, 23, 42, 0.85);
+        }
+
+        .action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+        }
+
+        .btn-submit {
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.75rem;
+            color: #fff;
+            font-family: var(--font-heading);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            transition: all 0.25s ease;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-clear {
+            background: transparent;
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 0.75rem 1.25rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-clear:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        /* Metrics Bar */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            text-align: center;
+        }
+
+        .metric-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-val {
+            font-family: var(--font-heading);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-top: 0.2rem;
+        }
+
+        /* Response Display */
+        .response-card {
+            display: none;
+        }
+
+        .response-card.active {
+            display: block;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .clinical-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .clinical-section-title {
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 600;
+            color: #E0F2FE;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .clinical-section-title.diff { color: #38BDF8; }
+        .clinical-section-title.feat { color: #34D399; }
+        .clinical-section-title.plan { color: #FBBF24; }
+
+        .clinical-text {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .clinical-text p {
+            margin-bottom: 0.85rem;
+        }
+
+        .clinical-text h1, .clinical-text h2, .clinical-text h3, .clinical-text h4 {
+            font-family: var(--font-heading);
+            color: #E0F2FE;
+            margin-top: 1.25rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .clinical-text h2 {
+            font-size: 1.15rem;
+            color: var(--accent-emerald);
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 0.4rem;
+        }
+
+        .clinical-text h3 {
+            font-size: 1.05rem;
+            color: var(--accent-cyan);
+        }
+
+        /* Glassmorphic Markdown Table Styling */
+        .clinical-text table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 1.25rem 0;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .clinical-text th {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(16, 185, 129, 0.25) 100%);
+            color: #F3F4F6;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.875rem;
+            text-align: left;
+            padding: 0.85rem 1.1rem;
+            border-bottom: 1px solid var(--panel-border);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .clinical-text td {
+            padding: 0.85rem 1.1rem;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            line-height: 1.5;
+            vertical-align: top;
+        }
+
+        .clinical-text tr:last-child td {
+            border-bottom: none;
+        }
+
+        .clinical-text tr:nth-child(even) td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .clinical-text tr:hover td {
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .clinical-text ul, .clinical-text ol {
+            margin: 0.75rem 0 0.85rem 1.4rem;
+        }
+
+        .clinical-text li {
+            margin-bottom: 0.4rem;
+            color: var(--text-primary);
+        }
+
+        .clinical-text blockquote {
+            background: rgba(14, 165, 233, 0.08);
+            border-left: 4px solid var(--accent-cyan);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #D1D5DB;
+        }
+
+        /* Sources Accordion */
+        .sources-container {
+            margin-top: 1.5rem;
+        }
+
+        .source-card {
+            background: rgba(14, 165, 233, 0.05);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+            border-left: 4px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .source-card:hover {
+            background: rgba(14, 165, 233, 0.08);
+        }
+
+        .source-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .page-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34D399;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .heading-breadcrumb {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .source-snippet {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            font-style: italic;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.6rem;
+            border-radius: 6px;
+        }
+
+        /* Loading Spinner */
+        .loading-overlay {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            gap: 1rem;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(14, 165, 233, 0.2);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar" id="main-nav">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-stethoscope"></i></div>
+            <div class="brand-text">
+                <h1>Harrison's Clinical Decision Support</h1>
+                <p>Evidence-Based Retrieval-Augmented Generation System (20th Edition)</p>
+            </div>
+        </div>
+        <div class="system-status">
+            <div class="status-badge" id="api-status-badge">
+                <span class="status-dot" id="api-status-dot"></span>
+                <span id="api-status-text">Checking Backend API...</span>
+            </div>
+            <div class="status-badge">
+                <i class="fa-solid fa-database" style="color: var(--accent-cyan);"></i>
+                <span id="vector-count">22,594 Passages</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Dashboard Container -->
+    <div class="dashboard-container">
+        
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            
+            <!-- Sample Cases Card -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Quick Patient Cases</span>
+                </div>
+                <div class="preset-list">
+                    <button class="preset-btn" onclick="loadPreset(1)">
+                        <span>🫀 Acute Myocardial Infarction</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="preset-btn" onclick="loadPreset(2)">
+                        <span>🦋 Thyrotoxic Crisis / Grave's</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="preset-btn" onclick="loadPreset(3)">
+                        <span>🩸 Epigastric Pain / Pancreatitis</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="preset-btn" onclick="loadPreset(4)">
+                        <span>🧠 Acute Ischemic Stroke</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Retrieval Tuning Card -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Retrieval Parameters</span>
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Hybrid Shortlist Size</span>
+                        <span class="control-value" id="shortlist-val">12</span>
+                    </div>
+                    <input type="range" id="shortlist-range" min="5" max="30" value="12" oninput="updateControlValues()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Top Reranked Context</span>
+                        <span class="control-value" id="topn-val">8</span>
+                    </div>
+                    <input type="range" id="topn-range" min="3" max="15" value="8" oninput="updateControlValues()">
+                </div>
+            </div>
+
+            <!-- Model Info Card -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Clinical Grounding & Safety</span>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;">
+                    Answers are strictly bound to Harrison's textbook excerpts with exact page citations. Hallucinations are prevented via low-temperature verification.
+                </p>
+            </div>
+
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-workspace">
+            
+            <!-- Query Presentation Input -->
+            <div class="glass-card query-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-user-doctor"></i>
+                    <span>Patient Presentation & Symptoms Input</span>
+                </div>
+                <textarea id="clinical-query" class="query-textarea" placeholder="Enter patient presentation, clinical symptoms, lab values, or diagnostic questions..."></textarea>
+                
+                <div class="action-bar">
+                    <button class="btn-clear" onclick="clearInput()"><i class="fa-solid fa-eraser"></i> Clear Input</button>
+                    <button class="btn-submit" onclick="submitClinicalQuery()" id="submit-btn">
+                        <i class="fa-solid fa-magnifying-glass-doc"></i> Execute Clinical RAG Query
+                    </button>
+                </div>
+            </div>
+
+            <!-- Metrics Bar -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-title">Retrieval Latency</div>
+                    <div class="metric-val" id="metric-retrieval">-- ms</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Rerank Latency</div>
+                    <div class="metric-val" id="metric-rerank">-- ms</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">LLM Generation</div>
+                    <div class="metric-val" id="metric-gen">-- ms</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Total Latency</div>
+                    <div class="metric-val" id="metric-total">-- ms</div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="glass-card loading-overlay" id="loading-spinner">
+                <div class="spinner"></div>
+                <p style="font-size: 0.9rem; color: var(--accent-cyan); font-weight: 500;">
+                    Executing Hybrid BM25 + Vector Search & Cross-Encoder Reranking...
+                </p>
+            </div>
+
+            <!-- Output Guidance Card -->
+            <div class="glass-card response-card" id="response-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-clipboard-check" style="color: var(--accent-emerald);"></i>
+                    <span>Harrison's Grounded Clinical Guidance</span>
+                </div>
+
+                <div class="clinical-text" id="guidance-content"></div>
+
+                <!-- Cited Sources -->
+                <div class="sources-container" id="sources-wrapper">
+                    <div class="card-header" style="margin-top: 1.5rem;">
+                        <i class="fa-solid fa-book-open-reader"></i>
+                        <span>Cited Textbook Passages & Pages</span>
+                    </div>
+                    <div id="sources-list"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '8000' 
+            ? "http://localhost:8000" 
+            : window.location.origin;
+
+        const presets = {
+            1: "65-year-old male with hypertension presenting with sudden retrosternal crushing chest pain radiating to left jaw, diaphoresis, and shortness of breath.",
+            2: "42-year-old female presenting with 3-week history of fatigue, weight loss, heat intolerance, palpitation, and fine hand tremors.",
+            3: "55-year-old male presenting with severe epigastric pain radiating straight to the back, nausea, vomiting, and elevated serum lipase.",
+            4: "70-year-old male presenting with sudden onset right-sided hemiparesis, facial drooping, and expressive aphasia within 2 hours of symptom onset."
+        };
+
+        function updateControlValues() {
+            document.getElementById('shortlist-val').innerText = document.getElementById('shortlist-range').value;
+            document.getElementById('topn-val').innerText = document.getElementById('topn-range').value;
+        }
+
+        function loadPreset(id) {
+            document.getElementById('clinical-query').value = presets[id];
+        }
+
+        function clearInput() {
+            document.getElementById('clinical-query').value = "";
+            document.getElementById('response-card').classList.remove('active');
+        }
+
+        async function checkHealth() {
+            const dot = document.getElementById('api-status-dot');
+            const text = document.getElementById('api-status-text');
+            const vecCount = document.getElementById('vector-count');
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/health`);
+                if (res.ok) {
+                    const data = await res.json();
+                    dot.classList.add('online');
+                    
+                    const provider = (data.llm_status && data.llm_status.provider) ? data.llm_status.provider : 'Backend API';
+                    text.innerText = `${provider} Online`;
+
+                    if (data.vector_store && data.vector_store.count) {
+                        vecCount.innerText = `${data.vector_store.count.toLocaleString()} Passages`;
+                    }
+                } else {
+                    dot.classList.remove('online');
+                    text.innerText = "API Error";
+                }
+            } catch (e) {
+                dot.classList.remove('online');
+                text.innerText = "API Offline (localhost:8000)";
+            }
+        }
+
+        async function submitClinicalQuery() {
+            const query = document.getElementById('clinical-query').value.trim();
+            if (!query) {
+                alert("Please enter a patient presentation or clinical question.");
+                return;
+            }
+
+            const topN = parseInt(document.getElementById('topn-range').value);
+            const spinner = document.getElementById('loading-spinner');
+            const responseCard = document.getElementById('response-card');
+            const submitBtn = document.getElementById('submit-btn');
+
+            spinner.classList.add('active');
+            responseCard.classList.remove('active');
+            submitBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question: query,
+                        top_n: topN,
+                        include_sources: true
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    renderResponse(data);
+                } else {
+                    alert(`Server returned error status: ${res.status}`);
+                }
+            } catch (e) {
+                alert(`Error connecting to backend API: ${e.message}`);
+            } finally {
+                spinner.classList.remove('active');
+                submitBtn.disabled = false;
+            }
+        }
+
+        function renderResponse(data) {
+            // Render Latency Metrics
+            document.getElementById('metric-retrieval').innerText = `${data.latency.retrieval_ms} ms`;
+            document.getElementById('metric-rerank').innerText = `${data.latency.rerank_ms} ms`;
+            document.getElementById('metric-gen').innerText = `${data.latency.generation_ms} ms`;
+            document.getElementById('metric-total').innerText = `${data.latency.total_ms} ms`;
+
+            // Render Formatted Guidance Text
+            const guidanceContent = document.getElementById('guidance-content');
+            guidanceContent.innerHTML = formatMarkdownText(data.answer);
+
+            // Render Sources List
+            const sourcesList = document.getElementById('sources-list');
+            sourcesList.innerHTML = "";
+
+            if (data.sources && data.sources.length > 0) {
+                data.sources.forEach((src, idx) => {
+                    const pageStr = src.page_numbers ? src.page_numbers.join(', ') : 'N/A';
+                    const score = src.rerank_score ? src.rerank_score.toFixed(4) : 'N/A';
+
+                    const card = document.createElement('div');
+                    card.className = 'source-card';
+                    card.innerHTML = `
+                        <div class="source-meta">
+                            <span class="page-badge"><i class="fa-solid fa-bookmark"></i> Page ${pageStr}</span>
+                            <span class="heading-breadcrumb"><i class="fa-solid fa-folder-tree"></i> ${escapeHtml(src.heading_trail)}</span>
+                            <span style="color: var(--accent-cyan); font-weight: 600;">Score: ${score}</span>
+                        </div>
+                        <div class="source-snippet">"${escapeHtml(src.text_preview)}"</div>
+                    `;
+                    sourcesList.appendChild(card);
+                });
+            }
+
+            document.getElementById('response-card').classList.add('active');
+        }
+
+        function formatMarkdownText(text) {
+            if (!text) return "";
+            if (typeof marked !== 'undefined' && marked.parse) {
+                try {
+                    return marked.parse(text);
+                } catch (e) {
+                    console.error("Marked parsing error:", e);
+                }
+            }
+            return fallbackMarkdownParser(text);
+        }
+
+        function fallbackMarkdownParser(text) {
+            const lines = text.split('\n');
+            const html = [];
+            let inTable = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                // Detect Table Row
+                if (line.startsWith('|') && line.endsWith('|')) {
+                    const cells = line.split('|').slice(1, -1).map(c => c.trim());
+                    
+                    // Separator line (e.g. |---|---|)
+                    if (cells.every(c => /^:?-+:?$/.test(c))) {
+                        continue;
+                    }
+
+                    if (!inTable) {
+                        inTable = true;
+                        html.push('<table><thead><tr>');
+                        cells.forEach(c => html.push(`<th>${formatInline(c)}</th>`));
+                        html.push('</tr></thead><tbody>');
+                    } else {
+                        html.push('<tr>');
+                        cells.forEach(c => html.push(`<td>${formatInline(c)}</td>`));
+                        html.push('</tr>');
+                    }
+                } else {
+                    if (inTable) {
+                        html.push('</tbody></table>');
+                        inTable = false;
+                    }
+
+                    if (line.startsWith('#### ')) {
+                        html.push(`<h4>${formatInline(line.substring(5))}</h4>`);
+                    } else if (line.startsWith('### ')) {
+                        html.push(`<h3>${formatInline(line.substring(4))}</h3>`);
+                    } else if (line.startsWith('## ')) {
+                        html.push(`<h2>${formatInline(line.substring(3))}</h2>`);
+                    } else if (line.startsWith('# ')) {
+                        html.push(`<h1>${formatInline(line.substring(2))}</h1>`);
+                    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+                        html.push(`<li>${formatInline(line.substring(2))}</li>`);
+                    } else if (line === '---') {
+                        html.push('<hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 1.25rem 0;">');
+                    } else if (line.length > 0) {
+                        html.push(`<p>${formatInline(line)}</p>`);
+                    }
+                }
+            }
+
+            if (inTable) {
+                html.push('</tbody></table>');
+            }
+
+            return html.join('\n');
+        }
+
+        function formatInline(text) {
+            return escapeHtml(text)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">$1</code>');
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initialize health check on startup
+        checkHealth();
+        setInterval(checkHealth, 10000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Python Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Heavy Data & Cached Index Files
+data/cache/
+data/chroma_db/
+*.pdf
+*.pkl
+tmp/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
